@@ -164,11 +164,27 @@ contract StakingTokenDFH is Pausable,Ownable {
         info.reward = 0;
     }
 
-    function getInfoUserStaking(uint256 _ops, uint256 _id) external view returns (userInfoStaking memory)
+    function getInfoUserStaking(
+        address account,
+        uint256 _ops,
+        uint256 _id
+    ) 
+        public
+        view 
+        returns (bool, uint256, uint256, uint256, uint256, uint256, uint256, uint256)
     {
-        bytes32 _value = keccak256(abi.encodePacked(_msgSender(), _ops,_id));
+        bytes32 _value = keccak256(abi.encodePacked(account, _ops,_id));
         userInfoStaking memory info = infoStaking[_value];
-        return info;
+        return (
+            info.isActive,
+            info.amount, 
+            info.startTime,
+            info.endTime,
+            info.stakeOptions,
+            info.fullLockedDays,
+            info.valueAPY,
+            info.reward
+        );
     }
 
     event Received(address, uint);
@@ -182,5 +198,5 @@ contract StakingTokenDFH is Pausable,Ownable {
 * Staking Options Demo:
 * [60,180,360,540,1080]
 * [60,150,200,300,500]
-* [1000000000000000000000,1000000000000000000000,1000000000000000000000,1000000000000000000000,1000000000000000000000]
+* [1000000,1000000,1000000,1000000,1000000]
 */
