@@ -6,12 +6,9 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 
 contract StakingTokenDFH is Pausable,Ownable {
-    using SafeMath for uint256;
-
     struct userInfoStaking {
         bool isActive;
         uint256 amount;
@@ -29,7 +26,6 @@ contract StakingTokenDFH is Pausable,Ownable {
         uint256 maxPool;
         uint256 curPool;
     }
-
 
     ERC20 public token;
     mapping(bytes32 => userInfoStaking) private infoStaking;
@@ -65,7 +61,7 @@ contract StakingTokenDFH is Pausable,Ownable {
     }
 
     function viewOptionsStaking(uint256 _ops) public view returns(uint256, uint256, uint256, uint256){
-        return(infoOptions[_ops].lockDays, infoOptions[_ops].valueAPY, infoOptions[_ops].maxPool, infoOptions[_ops].curPool);
+        return (infoOptions[_ops].lockDays, infoOptions[_ops].valueAPY, infoOptions[_ops].maxPool, infoOptions[_ops].curPool);
     }
 
     function pause() public onlyOwner {
@@ -86,8 +82,7 @@ contract StakingTokenDFH is Pausable,Ownable {
         uint256 _lockDay =  infoOptions[_ops].lockDays;
         uint256 _apy = infoOptions[_ops].valueAPY;
         uint256 _reward = _calcRewardStaking(_apy,_lockDay,_amountStake);
-        if(_ops == 0)
-        {
+        if(_ops == 0) {
             _reward = 0;
         }
 
@@ -130,7 +125,7 @@ contract StakingTokenDFH is Pausable,Ownable {
         info.endTime = block.timestamp;
         info.isActive = false;
         if (_ops == 0) {
-            uint256 _lockDay = (block.timestamp - info.startTime) / (infoOptions[0]);
+            uint256 _lockDay = (block.timestamp - info.startTime) / (infoOptions[0].lockDays);
             uint256 _reward = _calcRewardStaking(info.valueAPY,_lockDay,info.amount);
             info.reward = _reward;
         }
@@ -189,4 +184,3 @@ contract StakingTokenDFH is Pausable,Ownable {
 * [60,150,200,300,500]
 * [1000000000000000000000,1000000000000000000000,1000000000000000000000,1000000000000000000000,1000000000000000000000]
 */
-//
