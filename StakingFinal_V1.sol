@@ -129,9 +129,8 @@ contract StakingTokenDFH is Pausable,Ownable {
         userInfoStaking memory info = infoStaking[_value];
         info.endTime = block.timestamp;
         info.isActive = false;
-        if (info.stakeOptions == 0)
-        {
-            uint256 _lockDay = (block.timestamp - info.startTime) / (1 days);
+        if (_ops == 0) {
+            uint256 _lockDay = (block.timestamp - info.startTime) / (infoOptions[0]);
             uint256 _reward = _calcRewardStaking(info.valueAPY,_lockDay,info.amount);
             info.reward = _reward;
         }
