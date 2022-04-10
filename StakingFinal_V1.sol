@@ -40,17 +40,24 @@ contract StakingTokenDFH is Pausable,Ownable {
     event UserUnstaking(address indexed user, uint256 claimableAmountStake, uint256 indexed option, uint256 indexed id);
     event UserReward(address indexed user, uint256 claimableReward, uint256 indexed option, uint256 indexed id);
 
-    uint256 public END_TIME_EVENT;
-    uint256 public LOCK_REWARD_DURATION = (10 minutes);
-    uint256 public TOTAL_STAKED = 0;
-    uint256 public TOTAL_CLAIMED = 0;
+    uint256 public endTimeEvent;
+    uint256 public lockRewardDuration = (10 minutes);
+    uint256 public totalStaked = 0;
+    uint256 public totalClaimed = 0;
 
     constructor(ERC20 _token) {
         token = _token;
-        END_TIME_EVENT = 1712202161; // default end time on Thu Apr 04 2024
+        endTimeEvent = 1712202161; // default end time on Thu Apr 04 2024
     }
 
-    function setOptionsStaking(uint256[] memory _optionInfoDay, uint256[] memory _optionInfoAPY,uint256[] memory _optionInfoMaxPool) public onlyOwner{
+    function setOptionsStaking(
+        uint256[] memory _optionInfoDay, 
+        uint256[] memory _optionInfoAPY,
+        uint256[] memory _optionInfoMaxPool
+    ) public onlyOwner{
+        require(_optionInfoDay.length == _optionInfoAPY.length, "SetOptions: The inputs have the same length");
+        require(_optionInfoDay.length == _optionInfoMaxPool.length, "SetOptions: The inputs have the same length");
+
         for(uint256 i=0; i < _optionInfoDay.length; i++){
             OptionsStaking memory info = OptionsStaking(_optionInfoDay[i], _optionInfoAPY[i], _optionInfoMaxPool[i], 0);
             infoOptions[i] = info;
@@ -58,11 +65,11 @@ contract StakingTokenDFH is Pausable,Ownable {
     }
 
     function setEndTime (uint256 endTime) public onlyOwner {
-        END_TIME_EVENT = endTime;
+        endTimeEvent = endTime;
     }
 
-    function setLockRewardDuration (uint256 lockRewardDuration) public onlyOwner {
-        LOCK_REWARD_DURATION = lockRewardDuration;
+    function setLockRewardDuration (uint256 _lockRewardDuration) public onlyOwner {
+        lockRewardDuration = _lockRewardDuration;
     }
 
     function viewOptionsStaking(uint256 _ops) public view returns(uint256, uint256, uint256, uint256){
@@ -82,7 +89,7 @@ contract StakingTokenDFH is Pausable,Ownable {
         require(infoStaking[_value].isActive == false, "UserStake: Duplicate id");
         uint256 _curPool = infoOptions[_ops].curPool + _amountStake;
         require(_curPool <= infoOptions[_ops].maxPool, "UserStake: Max Amount");
-        require(block.timestamp <= END_TIME_EVENT,"UserStake: Event Over Time");
+        require(block.timestamp <= endTimeEvent,"UserStake: Event Over Time");
 
         token.transferFrom(msg.sender, address(this), _amountStake);
 
@@ -107,7 +114,7 @@ contract StakingTokenDFH is Pausable,Ownable {
             );
         infoStaking[_value] = info;
         infoOptions[_ops].curPool = _curPool;
-        TOTAL_STAKED = TOTAL_STAKED + _amountStake;
+        totalStaked = totalStaked + _amountStake;
         emit UsersStaking(msg.sender, _amountStake, _ops, _id);
 
         userInfoTotal storage infoTotals  = infoTotal[_msgSender()];
@@ -116,7 +123,7 @@ contract StakingTokenDFH is Pausable,Ownable {
     }
 
     function estRewardAmount(uint256 _apy, uint256 _lockDay, uint256 _amount)
-        internal
+        public
         pure
         returns(uint256)
     {
@@ -166,8 +173,12 @@ contract StakingTokenDFH is Pausable,Ownable {
         bytes32 _value = keccak256(abi.encodePacked(_msgSender(), _ops,_id));
         uint256 _claimableReward = _calcReward(_value);
         require(_claimableReward > 0, "Reward: Nothing to claim");
-        require(token.transfer(msg.sender,_claimableReward), "Reward: tranfer failed");
-        TOTAL_CLAIMED = TOTAL_CLAIMED + _claimableReward;
+        token.transfer(msg.sender,_claimableReward);
+
+        userInfoStaking storage info = infoStaking[_value];
+        info.reward = 0;
+
+        totalClaimed = totalClaimed + _claimableReward;
         emit UserReward(msg.sender, _claimableReward, _ops, _id);
     }
 
@@ -177,10 +188,9 @@ contract StakingTokenDFH is Pausable,Ownable {
         returns(uint256 claimableReward)
     {
         userInfoStaking memory info = infoStaking[_value];
-        uint256 releaseTime = info.endTime + LOCK_REWARD_DURATION;
+        uint256 releaseTime = info.endTime + lockRewardDuration;
         if(block.timestamp < releaseTime) return 0;
         claimableReward = info.reward;
-        info.reward = 0;
     }
 
     function getInfoUserTotal(address account)
