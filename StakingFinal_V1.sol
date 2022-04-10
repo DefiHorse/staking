@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.0;
@@ -27,9 +26,15 @@ contract StakingTokenDFH is Pausable,Ownable {
         uint256 curPool;
     }
 
+    struct userInfoTotal{
+        uint256 totalStaked; 
+        uint256 totalReward;
+    }
+
     ERC20 public token;
     mapping(bytes32 => userInfoStaking) private infoStaking;
     mapping(uint256 => OptionsStaking) private infoOptions;
+    mapping(address => userInfoTotal) private infoTotal;
 
     event UsersStaking(address indexed user, uint256 amountStake, uint256 indexed option, uint256 indexed id);
     event UserUnstaking(address indexed user, uint256 claimableAmountStake, uint256 indexed option, uint256 indexed id);
@@ -78,7 +83,9 @@ contract StakingTokenDFH is Pausable,Ownable {
         uint256 _curPool = infoOptions[_ops].curPool + _amountStake;
         require(_curPool <= infoOptions[_ops].maxPool, "UserStake: Max Amount");
         require(block.timestamp <= END_TIME_EVENT,"UserStake: Event Over Time");
-        require(token.transferFrom(msg.sender, address(this), _amountStake), "Staking: tranfer failed");
+
+        token.transferFrom(msg.sender, address(this), _amountStake);
+
         uint256 _lockDay =  infoOptions[_ops].lockDays;
         uint256 _apy = infoOptions[_ops].valueAPY;
         uint256 _reward = _calcRewardStaking(_apy,_lockDay,_amountStake);
@@ -102,15 +109,27 @@ contract StakingTokenDFH is Pausable,Ownable {
         infoOptions[_ops].curPool = _curPool;
         TOTAL_STAKED = TOTAL_STAKED + _amountStake;
         emit UsersStaking(msg.sender, _amountStake, _ops, _id);
+
+        userInfoTotal storage infoTotals  = infoTotal[_msgSender()];
+        infoTotals.totalStaked = infoTotals.totalStaked + _amountStake;
+        infoTotals.totalReward = infoTotals.totalReward + _reward;
+    }
+
+    function estRewardAmount(uint256 _apy, uint256 _lockDay, uint256 _amount)
+        internal
+        pure
+        returns(uint256)
+    {
+        return _calcRewardStaking(_apy, _lockDay, _amount);
     }
 
     function _calcRewardStaking(uint256 _apy, uint256 _lockDay, uint256 _amountStake)
         internal
         pure
-        returns(uint256 claimableRewardStaking)
+        returns(uint256)
     {
         uint256 _result = (_apy * (10**18) / 100)*_lockDay*_amountStake;
-        claimableRewardStaking = (_result/365)/(10**18);
+        return (_result / 365) / (10**18);
     }
 
     function userUnstake(uint256 _ops, uint256 _id) public {
@@ -121,7 +140,7 @@ contract StakingTokenDFH is Pausable,Ownable {
         token.transfer(msg.sender,claimableAmount);
         emit UserUnstaking(msg.sender, claimableAmount, _ops, _id);
 
-        userInfoStaking memory info = infoStaking[_value];
+        userInfoStaking storage info = infoStaking[_value];
         info.endTime = block.timestamp;
         info.isActive = false;
         if (_ops == 0) {
@@ -162,6 +181,15 @@ contract StakingTokenDFH is Pausable,Ownable {
         if(block.timestamp < releaseTime) return 0;
         claimableReward = info.reward;
         info.reward = 0;
+    }
+
+    function getInfoUserTotal(address account)
+        public 
+        view 
+        returns (uint256,uint256) 
+    {
+        userInfoTotal memory info = infoTotal[account];
+        return (info.totalStaked,info.totalReward);
     }
 
     function getInfoUserStaking(
